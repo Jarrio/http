@@ -54,7 +54,16 @@ class HttpResponse
             return null;
         }
 
+        #if nodejs
+        var s:String = js.node.Buffer.from(body.getData()).toString();
+        s = StringTools.trim(s);
+        s = StringTools.replace(s, "\uFEFF", "");
+        s = StringTools.replace(s, "\u0000", "");
+
+        return s;
+        #else
         return body.toString();
+        #end
     }
 
     public var bodyAsJson(get, null):T;
@@ -63,6 +72,10 @@ class HttpResponse
             return null;
         }
 
+        #if nodejs
+        return Json.parse(bodyAsString);
+        #else
         return Json.parse(body.toString());
+        #end
     }
 }
