@@ -159,7 +159,7 @@
  
          req.end();
          req.on('error', function(e) {
-            onError("No connection");
+            onError(e);
          });
      }
  
