@@ -29,14 +29,18 @@ class DefaultHttpProvider implements IHttpProvider {
     private static var _completionQueue:sys.thread.Deque<RequestResult> = new sys.thread.Deque<RequestResult>();
     #end
 
-    // basic threaded request, which allows for async programming, could / should be greatly 
+    // basic threaded request, which allows for async programming, could / should be greatly
     // improved by using a thread pool, but for a preliminary impl its better than the
     // standard (sync) behaviour of haxe std http
     private function makeThreadedRequest(request:HttpRequest):Promise<HttpResponse> {
         #if http_threaded_use_completion_queue
 
         return new Promise((resolve, reject) -> {
+            #if haxe5
+            sys.thread.Thread.create(() -> {
+            #else
             sys.thread.Thread.createWithEventLoop(() -> {
+            #end
                 makeRequestCommon(request).then(response -> {
                     _completionQueue.push(Success(response, resolve));
                 }, error -> {
@@ -48,8 +52,19 @@ class DefaultHttpProvider implements IHttpProvider {
         #else
 
         return new Promise((resolve, reject) -> {
+            #if haxe5
+            var mainLoop = haxe.EventLoop.main;
+            mainLoop.promise();
+            sys.thread.Thread.create(() -> {
+                makeRequestCommon(request).then(response -> {
+                    mainLoop.run(() -> { resolve(response); mainLoop.deliver(); });
+                }, error -> {
+                    mainLoop.run(() -> { reject(error); mainLoop.deliver(); });
+                });
+            });
+            #else
             var mainThread = sys.thread.Thread.current();
-            mainThread.events.promise(); // keep main thread alive
+            mainThread.events.promise();
             sys.thread.Thread.createWithEventLoop(() -> {
                 makeRequestCommon(request).then(response -> {
                     mainThread.events.runPromised(() -> resolve(response));
@@ -57,6 +72,7 @@ class DefaultHttpProvider implements IHttpProvider {
                     mainThread.events.runPromised(() -> reject(error));
                 });
             });
+            #end
         });
 
         #end
