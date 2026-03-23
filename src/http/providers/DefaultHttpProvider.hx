@@ -126,23 +126,16 @@ class DefaultHttpProvider implements IHttpProvider {
 
     private function makeRequestCommon(request:HttpRequest):Promise<HttpResponse> {
         return new Promise((resolve, reject) -> {
-            var url = request.url.build(false);
+            var url = request.url.build(true);
             var http = new Http(url);
             var response = new HttpResponse();
             response.originalRequest = request;
 
-            // add any params from the url query
-            var allParameters:Map<String, Any> = [];
-            for (queryParamKey in request.url.queryParams.keys()) {
-                allParameters.set(queryParamKey, request.url.queryParams.get(queryParamKey));
-            }
-            // lets also add (and overwrite) any params that come from the actual request
+            // add any request-level params not already in the URL
             for (queryParamKey in request.queryParams.keys()) {
-                allParameters.set(queryParamKey, request.queryParams.get(queryParamKey));
-            }
-            // finally lets add them to the actual request
-            for (queryParamKey in allParameters.keys()) {
-                http.addParameter(queryParamKey, allParameters.get(queryParamKey));
+                if (!request.url.queryParams.exists(queryParamKey)) {
+                    http.addParameter(queryParamKey, request.queryParams.get(queryParamKey));
+                }
             }
 
             // add headers
@@ -157,7 +150,7 @@ class DefaultHttpProvider implements IHttpProvider {
                 var method:String = request.method;
                 log.debug('making "${method.toLowerCase()}" request to "${url}"');
                 log.debug('    headers:', request.headers);
-                log.debug('    query params:', allParameters);
+                log.debug('    query params:', request.url.queryParams);
                 if (request.body != null) {
                     log.debug('    body:', request.body);
                 }
